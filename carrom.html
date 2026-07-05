@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Carrom — You vs Computer</title>
 <style>
   :root{
@@ -81,9 +81,9 @@
       <div id="turnBanner">Your Turn</div>
       <canvas id="game" width="700" height="700"></canvas>
       <div class="controls-row">
-        <button class="nudge-btn" id="nudgeLeft">◀</button>
+        <button type="button" class="nudge-btn" id="nudgeLeft">◀</button>
         <div class="power-bar-track"><div class="power-bar-fill" id="powerFill"></div></div>
-        <button class="nudge-btn" id="nudgeRight">▶</button>
+        <button type="button" class="nudge-btn" id="nudgeRight">▶</button>
       </div>
       <p class="hint">Drag the striker left/right on your baseline to position it, then drag backward and release to shoot (or use ◀ ▶ buttons to nudge).</p>
       <div class="hud">
@@ -108,7 +108,7 @@
           <li>Pot the striker itself → foul. Turn passes, and any coins you potted on that same stroke are returned to the board.</li>
           <li>First player to legally pot all 9 of their own coins (with the queen properly covered) wins the game.</li>
         </ul>
-        <button class="btn" id="btnNew" style="margin-top:10px;">New Game</button>
+        <button type="button" class="btn" id="btnNew" style="margin-top:10px;">New Game</button>
       </div>
     </div>
   </div>
@@ -118,7 +118,7 @@
   <div class="modal">
     <h2 id="resultTitle">Game Over</h2>
     <p id="resultDetail" style="color:#e9d8b8;font-size:14px;"></p>
-    <button class="btn" id="btnPlayAgain" style="margin-top:14px;">Play Again</button>
+    <button type="button" class="btn" id="btnPlayAgain" style="margin-top:14px;">Play Again</button>
   </div>
 </div>
 
@@ -610,7 +610,7 @@
     document.getElementById('powerFill').style.width = '0%';
     if(dist < 6) return;
     const angle = Math.atan2(dy,dx);
-    launchStriker(angle, dist*POWER_SCALE*10);
+    launchStriker(angle, dist*POWER_SCALE);
   }
 
   function onUp(evt){
