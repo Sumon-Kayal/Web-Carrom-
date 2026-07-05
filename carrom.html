@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Carrom — You vs Computer</title>
+<style>
+  :root{
+    --wood-light:#c9974b;
+    --wood-dark:#5c3a1e;
+    --board-cream:#f0dcae;
+    --maroon:#7a1f2b;
+    --gold:#d8a24a;
+    --ink:#2c1c10;
+    --paper:#f7f1e3;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;min-height:100%;
+    background:radial-gradient(ellipse at 50% 0%, #3a2313 0%, #1c1108 70%);
+    font-family:Georgia,'Times New Roman',serif;
+    color:var(--paper);
+  }
+  h1,h2{font-family:Georgia,serif;font-weight:700;margin:0;}
+  .wrap{max-width:1100px;margin:0 auto;padding:16px 12px 40px;}
+  header{text-align:center;margin-bottom:10px;}
+  header .eyebrow{letter-spacing:.22em;text-transform:uppercase;font-size:10px;color:var(--gold);margin:0 0 4px;}
+  header h1{font-size:clamp(24px,5vw,36px);color:var(--paper);}
+  header h1 span{color:var(--gold);font-style:italic;font-weight:400;}
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start;}
+  @media (max-width:880px){.layout{grid-template-columns:1fr;}}
+  .board-frame{
+    position:relative;
+    background:linear-gradient(155deg,#7a4a24,#4a2c14 60%,#3a2110);
+    border-radius:16px;padding:16px;
+    box-shadow:0 24px 50px -18px rgba(0,0,0,.7), inset 0 0 0 1px rgba(255,255,255,.05);
+  }
+  #turnBanner{
+    text-align:center;font-weight:700;letter-spacing:.03em;
+    padding:8px 10px;border-radius:8px;margin-bottom:10px;
+    background:#00000030;color:var(--gold);font-size:15px;
+    transition:background .2s;
+  }
+  canvas{display:block;width:100%;height:auto;border-radius:8px;touch-action:none;background:#000;}
+  .controls-row{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:12px;}
+  .nudge-btn{
+    width:46px;height:46px;border-radius:50%;border:2px solid var(--gold);
+    background:#00000040;color:var(--gold);font-size:20px;font-weight:bold;cursor:pointer;
+    user-select:none;
+  }
+  .nudge-btn:active{background:var(--gold);color:var(--ink);}
+  .power-bar-track{flex:1;max-width:260px;height:14px;border-radius:8px;background:#00000050;position:relative;overflow:hidden;border:1px solid #ffffff20;}
+  .power-bar-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--gold),var(--maroon));transition:width .05s linear;}
+  .hud{display:flex;justify-content:space-around;margin-top:12px;flex-wrap:wrap;gap:8px;}
+  .stat{text-align:center;background:#00000030;border-radius:8px;padding:6px 12px;min-width:80px;}
+  .stat b{display:block;font-size:20px;color:var(--gold);}
+  .stat small{font-size:10px;opacity:.8;}
+  #message{text-align:center;min-height:20px;margin-top:8px;font-size:13px;color:var(--gold);font-weight:600;}
+  .panel{background:#00000030;border-radius:12px;padding:16px;margin-bottom:14px;}
+  .panel h2{font-size:16px;color:var(--gold);margin-bottom:8px;}
+  .rules{margin:0;padding-left:18px;font-size:12.5px;line-height:1.6;color:#e9d8b8;}
+  .rules li{margin-bottom:6px;}
+  .btn{border:0;background:var(--gold);color:var(--ink);padding:10px 16px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;width:100%;}
+  .btn:active{filter:brightness(.9);}
+  .hint{text-align:center;font-size:11.5px;opacity:.75;margin-top:6px;}
+  .overlay{position:fixed;inset:0;background:#000000c0;display:none;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .overlay.show{display:flex;}
+  .modal{background:#231609;border:1px solid #ffffff20;border-radius:14px;padding:26px;max-width:340px;width:100%;text-align:center;}
+  .modal h2{color:var(--gold);margin-bottom:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Classic wooden board · You vs the Computer</p>
+    <h1>Carrom <span>Board</span></h1>
+  </header>
+
+  <div class="layout">
+    <div class="board-frame">
+      <div id="turnBanner">Your Turn</div>
+      <canvas id="game" width="700" height="700"></canvas>
+      <div class="controls-row">
+        <button class="nudge-btn" id="nudgeLeft">◀</button>
+        <div class="power-bar-track"><div class="power-bar-fill" id="powerFill"></div></div>
+        <button class="nudge-btn" id="nudgeRight">▶</button>
+      </div>
+      <p class="hint">Drag the striker left/right on your baseline to position it, then drag backward and release to shoot (or use ◀ ▶ buttons to nudge).</p>
+      <div class="hud">
+        <div class="stat"><b id="playerScore">0</b><small>You (white) potted</small></div>
+        <div class="stat"><b id="playerLeft">9</b><small>Your coins left</small></div>
+        <div class="stat"><b id="queenState">—</b><small>Queen</small></div>
+        <div class="stat"><b id="computerLeft">9</b><small>CPU coins left</small></div>
+        <div class="stat"><b id="computerScore">0</b><small>CPU (black) potted</small></div>
+      </div>
+      <div id="message">Position your striker and take your shot.</div>
+    </div>
+
+    <div class="side">
+      <div class="panel">
+        <h2>How to Play</h2>
+        <ul class="rules">
+          <li>You play <b>white</b> coins, the computer plays <b>black</b>. Pot the red queen and it counts for whoever covers it.</li>
+          <li>Slide the striker left/right along your baseline before every shot — it can only be placed between the two baseline circles.</li>
+          <li>Drag back from the striker to aim, then release to shoot. Longer pull = more power.</li>
+          <li>Pot one of your own coins → you shoot again. Pot the opponent's coin → turn passes, coin is lost from play.</li>
+          <li>Pot the queen → you get one immediate follow-up shot to "cover" it by potting one of your own coins. Fail, and the queen is respotted at the centre.</li>
+          <li>Pot the striker itself → foul. Turn passes, and any coins you potted on that same stroke are returned to the board.</li>
+          <li>First player to legally pot all 9 of their own coins (with the queen properly covered) wins the game.</li>
+        </ul>
+        <button class="btn" id="btnNew" style="margin-top:10px;">New Game</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="resultTitle">Game Over</h2>
+    <p id="resultDetail" style="color:#e9d8b8;font-size:14px;"></p>
+    <button class="btn" id="btnPlayAgain" style="margin-top:14px;">Play Again</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const SIZE = 700;
+  const PLAY_MIN = 46, PLAY_MAX = 654;
+  const POCKET_R = 27;
+  const COIN_R = 15, STRIKER_R = 19, QUEEN_R = 15;
+  const FRICTION = 0.986, MIN_SPEED = 0.06;
+  const WALL_BOUNCE = 0.78;
+  const MAX_DRAG = 130;
+  const POWER_SCALE = 0.16;
+  const QUEEN_BONUS = 3;
+
+  const pockets = [
+    {x:PLAY_MIN+19, y:PLAY_MIN+19},
+    {x:PLAY_MAX-19, y:PLAY_MIN+19},
+    {x:PLAY_MIN+19, y:PLAY_MAX-19},
+    {x:PLAY_MAX-19, y:PLAY_MAX-19}
+  ];
+
+  // Baselines: player at bottom, computer at top. Striker constrained between the two baseline circles.
+  const PLAYER_BASE_Y = PLAY_MAX - 92;
+  const COMPUTER_BASE_Y = PLAY_MIN + 92;
+  const BASE_LEFT_X = 185, BASE_RIGHT_X = 515;
+  const CENTER = SIZE/2;
+
+  let coins = [];      // {x,y,vx,vy,r,color:'white'|'black',type:'coin', active}
+  let queen = null;    // {x,y,vx,vy,r,type:'queen', active}
+  let striker = null;  // {x,y,vx,vy,r,type:'striker', active}
+
+  let currentPlayer = 'player'; // 'player' | 'computer'
+  let playerScore = 0, computerScore = 0;
+  const PLAYER_COLOR = 'white', COMPUTER_COLOR = 'black';
+  let queenPending = null;   // null | 'player' | 'computer'  -> whose turn must cover it next
+  let queenOnBoard = true;
+  let gameOver = false;
+  let moving = false;
+
+  let positioning = false, aiming = false;
+  let dragStartX = 0, dragStartY = 0, aimCurrent = {x:0,y:0};
+  let pocketedThisShot = []; // {kind:'coin'|'queen'|'foul', color, ref}
+  let touchedAnyThisShot = false;
+
+  function rand(a,b){ return a + Math.random()*(b-a); }
+
+  function makeCoin(x,y,color){
+    return {x,y,vx:0,vy:0,r:COIN_R,color,type:'coin',active:true};
+  }
+
+  function layoutCoins(){
+    coins = [];
+    const ring1 = 33, ring2 = 64;
+    const seq = [];
+    // Build alternating color sequence so exactly 9 white / 9 black, adjacent coins differ.
+    for(let i=0;i<18;i++) seq.push(i%2===0?'white':'black');
+    let k = 0;
+    for(let i=0;i<6;i++){
+      const a = (Math.PI*2/6)*i;
+      coins.push(makeCoin(CENTER+Math.cos(a)*ring1, CENTER+Math.sin(a)*ring1, seq[k++]));
+    }
+    for(let i=0;i<12;i++){
+      const a = (Math.PI*2/12)*i + Math.PI/12;
+      coins.push(makeCoin(CENTER+Math.cos(a)*ring2, CENTER+Math.sin(a)*ring2, seq[k++]));
+    }
+    queen = {x:CENTER, y:CENTER, vx:0, vy:0, r:QUEEN_R, type:'queen', active:true};
+    queenOnBoard = true;
+  }
+
+  function placeStrikerForTurn(){
+    const y = currentPlayer==='player' ? PLAYER_BASE_Y : COMPUTER_BASE_Y;
+    striker = {x:CENTER, y, vx:0, vy:0, r:STRIKER_R, type:'striker', active:true};
+  }
+
+  function newGame(){
+    playerScore = 0; computerScore = 0;
+    currentPlayer = 'player';
+    queenPending = null;
+    gameOver = false; moving = false; positioning=false; aiming=false;
+    layoutCoins();
+    placeStrikerForTurn();
+    updateHUD();
+    showMessage('Position your striker and take your shot.');
+    updateTurnBanner();
+    hideOverlay();
+  }
+
+  // ---------- physics ----------
+  function allBodies(){
+    const arr = coins.filter(c=>c.active);
+    if(queen.active) arr.push(queen);
+    if(striker.active) arr.push(striker);
+    return arr;
+  }
+
+  function isMoving(){
+    return allBodies().some(b=>Math.hypot(b.vx,b.vy) > MIN_SPEED);
+  }
+
+  function findFreeSpot(prefX, prefY, radius){
+    const bodies = allBodies();
+    function overlaps(x,y){
+      return bodies.some(b=> Math.hypot(b.x-x,b.y-y) < (b.r+radius+2));
+    }
+    if(!overlaps(prefX,prefY)) return {x:prefX,y:prefY};
+    for(let ring=1; ring<20; ring++){
+      const steps = 8*ring;
+      for(let i=0;i<steps;i++){
+        const a = (Math.PI*2/steps)*i;
+        const x = prefX + Math.cos(a)*ring*10;
+        const y = prefY + Math.sin(a)*ring*10;
+        if(x-radius>PLAY_MIN && x+radius<PLAY_MAX && y-radius>PLAY_MIN && y+radius<PLAY_MAX && !overlaps(x,y)){
+          return {x,y};
+        }
+      }
+    }
+    return {x:prefX,y:prefY};
+  }
+
+  function respotCoin(c){
+    const spot = findFreeSpot(CENTER, CENTER, c.r);
+    c.x = spot.x; c.y = spot.y; c.vx=0; c.vy=0; c.active = true;
+  }
+
+  function respotQueen(){
+    const spot = findFreeSpot(CENTER, CENTER, queen.r);
+    queen.x = spot.x; queen.y = spot.y; queen.vx=0; queen.vy=0; queen.active = true;
+    queenOnBoard = true;
+  }
+
+  function checkPocket(d){
+    if(!d.active) return;
+    for(const p of pockets){
+      if(Math.hypot(d.x-p.x, d.y-p.y) < POCKET_R - 5){
+        d.active = false; d.vx = 0; d.vy = 0;
+        if(d.type==='striker'){ pocketedThisShot.push({kind:'foul'}); }
+        else if(d.type==='queen'){ queenOnBoard=false; pocketedThisShot.push({kind:'queen', ref:d}); }
+        else { pocketedThisShot.push({kind:'coin', color:d.color, ref:d}); }
+        return;
+      }
+    }
+  }
+
+  function resolveCollision(a,b){
+    const dx=b.x-a.x, dy=b.y-a.y, dist=Math.hypot(dx,dy), minDist=a.r+b.r;
+    if(dist===0 || dist>=minDist) return;
+    if(a.type==='striker' || b.type==='striker') touchedAnyThisShot = true;
+    const nx=dx/dist, ny=dy/dist, overlap=minDist-dist;
+    a.x -= nx*overlap/2; a.y -= ny*overlap/2;
+    b.x += nx*overlap/2; b.y += ny*overlap/2;
+    const kx=a.vx-b.vx, ky=a.vy-b.vy;
+    const p = (kx*nx+ky*ny);
+    if(p<=0) return;
+    a.vx -= p*nx; a.vy -= p*ny;
+    b.vx += p*nx; b.vy += p*ny;
+  }
+
+  function step(){
+    const bodies = allBodies();
+    bodies.forEach(b=>{
+      b.x += b.vx; b.y += b.vy;
+      b.vx *= FRICTION; b.vy *= FRICTION;
+      if(Math.hypot(b.vx,b.vy) < MIN_SPEED){ b.vx=0; b.vy=0; }
+      if(b.x-b.r < PLAY_MIN){ b.x = PLAY_MIN+b.r; b.vx *= -WALL_BOUNCE; }
+      if(b.x+b.r > PLAY_MAX){ b.x = PLAY_MAX-b.r; b.vx *= -WALL_BOUNCE; }
+      if(b.y-b.r < PLAY_MIN){ b.y = PLAY_MIN+b.r; b.vy *= -WALL_BOUNCE; }
+      if(b.y+b.r > PLAY_MAX){ b.y = PLAY_MAX-b.r; b.vy *= -WALL_BOUNCE; }
+    });
+    for(let i=0;i<bodies.length;i++)
+      for(let j=i+1;j<bodies.length;j++)
+        resolveCollision(bodies[i], bodies[j]);
+    bodies.forEach(checkPocket);
+  }
+
+  // ---------- turn resolution ----------
+  function addScore(who, n){
+    if(who==='player') playerScore += n; else computerScore += n;
+  }
+
+  function countRemaining(color){
+    return coins.filter(c=>c.active && c.color===color).length;
+  }
+
+  function resolveShot(){
+    const events = pocketedThisShot;
+    pocketedThisShot = [];
+    const shooter = currentPlayer;
+    const shooterColor = shooter==='player' ? PLAYER_COLOR : COMPUTER_COLOR;
+    const opponentColor = shooter==='player' ? COMPUTER_COLOR : PLAYER_COLOR;
+
+    const foul = events.some(e=>e.kind==='foul');
+    const ownPotted = events.filter(e=>e.kind==='coin' && e.color===shooterColor);
+    const oppPotted = events.filter(e=>e.kind==='coin' && e.color===opponentColor);
+    const queenPotted = events.some(e=>e.kind==='queen');
+
+    let msgParts = [];
+    let queenJustValidated = false;
+
+    // Resolve a queen that was pending cover from the shooter's previous stroke.
+    if(queenPending === shooter){
+      if(!foul && ownPotted.length>0){
+        addScore(shooter, QUEEN_BONUS);
+        queenPending = null;
+        queenJustValidated = true;
+        msgParts.push('Queen covered! +' + QUEEN_BONUS);
+      } else {
+        respotQueen();
+        queenPending = null;
+        msgParts.push('Queen not covered — respotted to centre.');
+      }
+    }
+
+    if(foul){
+      ownPotted.forEach(e=>respotCoin(e.ref));
+      oppPotted.forEach(e=>respotCoin(e.ref));
+      if(queenPotted) respotQueen();
+      msgParts.push('Foul! Striker was pocketed. Turn passes.');
+      showMessage(msgParts.join(' '));
+      passTurn();
+      afterShot();
+      return;
+    }
+
+    if(!touchedAnyThisShot && events.length===0){
+      msgParts.push((shooter==='player'?'You':'Computer') + ' missed — no contact.');
+    }
+
+    if(ownPotted.length>0){
+      addScore(shooter, ownPotted.length);
+      msgParts.push((shooter==='player'?'You':'Computer') + ' potted ' + ownPotted.length + ' own coin(s)!');
+    }
+    if(oppPotted.length>0){
+      msgParts.push((shooter==='player'?'You':'Computer') + " potted the opponent's coin — no bonus, coin lost.");
+    }
+    if(queenPotted){
+      queenPending = shooter;
+      msgParts.push('Queen pocketed! Cover it with your very next shot.');
+    }
+
+    const continues = ownPotted.length>0 || queenPotted || queenJustValidated;
+    showMessage(msgParts.join(' ') || 'Turn passes.');
+
+    if(continues){
+      if(!checkWin()){
+        showMessage(msgParts.join(' ') + ' ' + (shooter==='player'?'You shoot':'Computer shoots') + ' again!');
+      }
+    } else {
+      passTurn();
+    }
+
+    checkWin();
+    afterShot();
+  }
+
+  function passTurn(){
+    currentPlayer = currentPlayer==='player' ? 'computer' : 'player';
+  }
+
+  function checkWin(){
+    if(gameOver) return true;
+    const playerLeft = countRemaining(PLAYER_COLOR);
+    const computerLeft = countRemaining(COMPUTER_COLOR);
+    if(playerLeft===0 && queenPending!=='player'){
+      endGame('player'); return true;
+    }
+    if(computerLeft===0 && queenPending!=='computer'){
+      endGame('computer'); return true;
+    }
+    if(playerLeft===0 && computerLeft===0 && !queenOnBoard && !queenPending){
+      endGame(playerScore>=computerScore ? 'player' : 'computer'); return true;
+    }
+    return false;
+  }
+
+  function endGame(winner){
+    gameOver = true;
+    const title = document.getElementById('resultTitle');
+    const detail = document.getElementById('resultDetail');
+    title.textContent = winner==='player' ? '🏆 You Win!' : '🤖 Computer Wins!';
+    detail.textContent = `Final score — You: ${playerScore}  ·  Computer: ${computerScore}`;
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  function hideOverlay(){ document.getElementById('overlay').classList.remove('show'); }
+
+  function afterShot(){
+    updateHUD();
+    updateTurnBanner();
+    if(gameOver) return;
+    placeStrikerForTurn();
+    if(currentPlayer==='computer'){
+      setTimeout(computerTakeShot, 850);
+    }
+  }
+
+  // ---------- AI ----------
+  function computerTakeShot(){
+    if(gameOver || currentPlayer!=='computer' || moving) return;
+    const myColor = COMPUTER_COLOR;
+    let candidates = coins.filter(c=>c.active && c.color===myColor);
+    if(queenPending==='computer' || candidates.length===0){
+      // must cover queen or nothing else left of own color: try own color first, else queen, else opponent
+      if(candidates.length===0 && queen.active) candidates = [queen];
+      if(candidates.length===0) candidates = coins.filter(c=>c.active);
+    }
+    if(candidates.length===0){ candidates = queen.active ? [queen] : coins.filter(c=>c.active); }
+    if(candidates.length===0) return;
+
+    let best=null, bestScore=Infinity;
+    candidates.forEach(target=>{
+      pockets.forEach(p=>{
+        const potDist = Math.hypot(p.x-target.x, p.y-target.y);
+        const approachAngle = Math.atan2(p.y-target.y, p.x-target.x);
+        const cx = target.x - Math.cos(approachAngle)*(target.r+striker.r);
+        const cy = target.y - Math.sin(approachAngle)*(target.r+striker.r);
+        if(cx < PLAY_MIN+striker.r || cx > PLAY_MAX-striker.r) return;
+        const travelDist = Math.hypot(cx-striker.x, cy-striker.y);
+        const score = potDist*0.7 + travelDist*0.5;
+        if(score < bestScore){ bestScore=score; best={target,p,cx,cy}; }
+      });
+    });
+    if(!best){
+      // fallback: just strike toward nearest candidate
+      const t = candidates[0];
+      const a = Math.atan2(t.y-striker.y, t.x-striker.x);
+      launchStriker(a, 12);
+      return;
+    }
+    const dx = best.cx - striker.x, dy = best.cy - striker.y;
+    const dist = Math.hypot(dx,dy);
+    const jitter = (Math.random()-0.5) * 0.05;
+    const angle = Math.atan2(dy,dx) + jitter;
+    const power = Math.min(19, 8 + dist/55);
+    launchStriker(angle, power);
+  }
+
+  function launchStriker(angle, power){
+    striker.vx = Math.cos(angle)*power;
+    striker.vy = Math.sin(angle)*power;
+    pocketedThisShot = [];
+    touchedAnyThisShot = false;
+    moving = true;
+  }
+
+  // ---------- rendering ----------
+  function drawBoard(){
+    ctx.clearRect(0,0,SIZE,SIZE);
+    const grad = ctx.createLinearGradient(0,0,SIZE,SIZE);
+    grad.addColorStop(0,'#f3dfae'); grad.addColorStop(1,'#e3c383');
+    ctx.fillStyle = grad; ctx.fillRect(0,0,SIZE,SIZE);
+
+    ctx.strokeStyle = '#7a1f2b'; ctx.lineWidth = 4;
+    ctx.strokeRect(PLAY_MIN-6, PLAY_MIN-6, (PLAY_MAX-PLAY_MIN)+12, (PLAY_MAX-PLAY_MIN)+12);
+
+    // center circle
+    ctx.beginPath();
+    ctx.arc(CENTER, CENTER, COIN_R*4.6, 0, Math.PI*2);
+    ctx.strokeStyle='rgba(122,31,43,.55)'; ctx.lineWidth=1.4; ctx.stroke();
+
+    // baselines with circle end-markers
+    drawBaseline(PLAYER_BASE_Y, currentPlayer==='player');
+    drawBaseline(COMPUTER_BASE_Y, currentPlayer==='computer');
+
+    // pockets
+    pockets.forEach(p=>{
+      const pg = ctx.createRadialGradient(p.x,p.y,2,p.x,p.y,POCKET_R);
+      pg.addColorStop(0,'#000'); pg.addColorStop(1,'#241408');
+      ctx.beginPath(); ctx.arc(p.x,p.y,POCKET_R,0,Math.PI*2);
+      ctx.fillStyle = pg; ctx.fill();
+      ctx.lineWidth=3; ctx.strokeStyle='#7a1f2b'; ctx.stroke();
+    });
+
+    coins.filter(c=>c.active).forEach(drawDisc);
+    if(queen.active) drawDisc(queen);
+    if(striker.active) drawDisc(striker);
+
+    if(aiming) drawAim();
+  }
+
+  function drawBaseline(y, highlight){
+    ctx.strokeStyle = highlight ? 'rgba(216,162,74,.9)' : 'rgba(122,31,43,.4)';
+    ctx.lineWidth = highlight ? 3 : 2;
+    ctx.beginPath();
+    ctx.moveTo(BASE_LEFT_X, y);
+    ctx.lineTo(BASE_RIGHT_X, y);
+    ctx.stroke();
+    [BASE_LEFT_X, BASE_RIGHT_X].forEach(x=>{
+      ctx.beginPath();
+      ctx.arc(x,y,14,0,Math.PI*2);
+      ctx.strokeStyle = highlight ? 'rgba(216,162,74,.9)' : 'rgba(122,31,43,.4)';
+      ctx.lineWidth = highlight ? 2.4 : 1.6;
+      ctx.stroke();
+    });
+  }
+
+  function drawDisc(c){
+    ctx.beginPath();
+    ctx.arc(c.x,c.y,c.r,0,Math.PI*2);
+    let fill, stroke;
+    if(c.type==='coin' && c.color==='white'){ fill='#f7f1e1'; stroke='#c9b98a'; }
+    else if(c.type==='coin'){ fill='#232019'; stroke='#000'; }
+    else if(c.type==='queen'){ fill='#c23a2e'; stroke='#7a1f2b'; }
+    else { fill='#e8d2ab'; stroke='#7a1f2b'; }
+    const g = ctx.createRadialGradient(c.x-c.r*0.3,c.y-c.r*0.3,1,c.x,c.y,c.r);
+    g.addColorStop(0, lighten(fill,25)); g.addColorStop(1, fill);
+    ctx.fillStyle = g; ctx.fill();
+    ctx.lineWidth = c.type==='striker' ? 2.6 : 1.6;
+    ctx.strokeStyle = stroke; ctx.stroke();
+  }
+
+  function lighten(hex, amt){
+    const c = hex.replace('#','');
+    const num = parseInt(c.length===3 ? c.split('').map(x=>x+x).join('') : c, 16);
+    let r=(num>>16)+amt, g=((num>>8)&0xff)+amt, b=(num&0xff)+amt;
+    r=Math.min(255,r); g=Math.min(255,g); b=Math.min(255,b);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  function drawAim(){
+    const dx = dragStartX - aimCurrent.x, dy = dragStartY - aimCurrent.y;
+    const dist = Math.min(Math.hypot(dx,dy), MAX_DRAG);
+    if(dist < 4) return;
+    const ang = Math.atan2(dy,dx);
+    const lineLen = 40 + dist*1.7;
+    ctx.beginPath();
+    ctx.moveTo(striker.x, striker.y);
+    ctx.lineTo(striker.x+Math.cos(ang)*lineLen, striker.y+Math.sin(ang)*lineLen);
+    const g = ctx.createLinearGradient(striker.x,striker.y, striker.x+Math.cos(ang)*lineLen, striker.y+Math.sin(ang)*lineLen);
+    g.addColorStop(0,'rgba(216,162,74,.95)'); g.addColorStop(1,'rgba(216,162,74,0)');
+    ctx.strokeStyle=g; ctx.lineWidth=3; ctx.stroke();
+
+    const pct = dist/MAX_DRAG;
+    document.getElementById('powerFill').style.width = (pct*100).toFixed(0)+'%';
+  }
+
+  // ---------- input ----------
+  function getPos(evt){
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = SIZE/rect.width, scaleY = SIZE/rect.height;
+    const t = evt.touches && evt.touches.length ? evt.touches[0] : evt;
+    return { x:(t.clientX-rect.left)*scaleX, y:(t.clientY-rect.top)*scaleY };
+  }
+
+  function canAct(){
+    return !gameOver && !moving && currentPlayer==='player' && striker.active;
+  }
+
+  function onDown(evt){
+    if(!canAct()) return;
+    const p = getPos(evt);
+    if(Math.hypot(p.x-striker.x, p.y-striker.y) < STRIKER_R+28){
+      positioning = true; aiming = false;
+      dragStartX = p.x; dragStartY = p.y;
+    }
+    evt.preventDefault();
+  }
+
+  function onMove(evt){
+    if(!canAct()) return;
+    const p = getPos(evt);
+    if(positioning && !aiming){
+      const horiz = Math.abs(p.x - dragStartX);
+      const vert = Math.abs(p.y - dragStartY); // any vertical pull, up or down, starts aiming
+      if(vert > 18){
+        aiming = true; positioning = false;
+        aimCurrent = p;
+        return;
+      }
+      if(horiz > 2){
+        striker.x = Math.max(BASE_LEFT_X, Math.min(BASE_RIGHT_X, p.x));
+        dragStartX = p.x;
+      }
+      return;
+    }
+    if(aiming){
+      aimCurrent = p;
+    }
+    evt.preventDefault();
+  }
+
+  function shootFromDrag(){
+    const dx = dragStartX - aimCurrent.x, dy = dragStartY - aimCurrent.y;
+    const dist = Math.min(Math.hypot(dx,dy), MAX_DRAG);
+    aiming = false;
+    document.getElementById('powerFill').style.width = '0%';
+    if(dist < 6) return;
+    const angle = Math.atan2(dy,dx);
+    launchStriker(angle, dist*POWER_SCALE*10);
+  }
+
+  function onUp(evt){
+    if(positioning){ positioning = false; return; }
+    if(!aiming) return;
+    if(evt) aimCurrent = getPos(evt);
+    shootFromDrag();
+  }
+
+  canvas.addEventListener('mousedown', onDown);
+  canvas.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+  canvas.addEventListener('touchstart', onDown, {passive:false});
+  canvas.addEventListener('touchmove', onMove, {passive:false});
+  canvas.addEventListener('touchend', (e)=>{ e.preventDefault(); onUp(null); }, {passive:false});
+
+  document.getElementById('nudgeLeft').addEventListener('click', ()=>{
+    if(!canAct()) return;
+    striker.x = Math.max(BASE_LEFT_X, striker.x - 16);
+  });
+  document.getElementById('nudgeRight').addEventListener('click', ()=>{
+    if(!canAct()) return;
+    striker.x = Math.min(BASE_RIGHT_X, striker.x + 16);
+  });
+
+  document.getElementById('btnNew').addEventListener('click', newGame);
+  document.getElementById('btnPlayAgain').addEventListener('click', newGame);
+
+  // ---------- HUD ----------
+  function updateHUD(){
+    document.getElementById('playerScore').textContent = playerScore;
+    document.getElementById('computerScore').textContent = computerScore;
+    document.getElementById('playerLeft').textContent = countRemaining(PLAYER_COLOR);
+    document.getElementById('computerLeft').textContent = countRemaining(COMPUTER_COLOR);
+    document.getElementById('queenState').textContent = !queenOnBoard && !queenPending ? 'Won' :
+      (queenPending ? (queenPending==='player' ? 'Cover!' : 'CPU cover') : (queen.active ? 'On board' : '—'));
+  }
+
+  function updateTurnBanner(){
+    const el = document.getElementById('turnBanner');
+    el.textContent = currentPlayer==='player' ? 'Your Turn' : "Computer's Turn";
+  }
+
+  function showMessage(t){ document.getElementById('message').textContent = t; }
+
+  // ---------- main loop ----------
+  function loop(){
+    if(!gameOver){
+      if(isMoving()){
+        moving = true;
+        step();
+      } else if(moving){
+        moving = false;
+        resolveShot();
+      }
+    }
+    drawBoard();
+    requestAnimationFrame(loop);
+  }
+
+  newGame();
+  loop();
+})();
+</script>
+</body>
+</html>
